@@ -1,0 +1,20 @@
+# iCloud 관련 파일 무시
+.icloud
+.DS_Store
+*.icloud
+
+# 환경 변수 파일 무시
+.env
+.env.local
+.env.development
+.env.production
+
+# 의존성 모듈 무시
+/node_modules
+/client/node_modules
+/server/node_modules
+
+# 빌드 파일 무시
+/build
+/client/build
+/dist 
