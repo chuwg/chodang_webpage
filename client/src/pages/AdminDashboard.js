@@ -6,7 +6,7 @@ import {
 } from '@mui/material';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  BarChart, Bar, PieChart, Pie, Cell 
+  ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts';
 import { 
   ShoppingCart, LocalShipping, Person, AttachMoney 
@@ -36,7 +36,6 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // 관리자 인증 체크
     const adminToken = localStorage.getItem('adminToken');
     if (!adminToken) {
       navigate('/login');
@@ -48,16 +47,23 @@ const AdminDashboard = () => {
     { date: '2024-01-01', orders: 15, deliveries: 12 },
     { date: '2024-01-02', orders: 20, deliveries: 18 },
     { date: '2024-01-03', orders: 25, deliveries: 22 },
-    // ... 더 많은 데이터
   ];
 
   const customerOrders = [
     { id: 1, name: '김철수', email: 'kim@example.com', totalOrders: 5, totalAmount: 250000 },
     { id: 2, name: '이영희', email: 'lee@example.com', totalOrders: 3, totalAmount: 150000 },
-    // ... 더 많은 데이터
   ];
 
+  // COLORS 상수 추가
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
+
+  // pieChartData 추가
+  const pieChartData = [
+    { name: '배송완료', value: 45 },
+    { name: '배송중', value: 25 },
+    { name: '주문확인', value: 20 },
+    { name: '준비중', value: 10 }
+  ];
 
   return (
     <Container sx={{ pt: '80px', pb: '3rem' }}>
@@ -65,7 +71,6 @@ const AdminDashboard = () => {
         관리자 대시보드
       </Typography>
 
-      {/* 통계 카드 */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
@@ -101,53 +106,58 @@ const AdminDashboard = () => {
         </Grid>
       </Grid>
 
-      {/* 차트 */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 3, borderRadius: '15px' }}>
+          <Paper sx={{ 
+            p: 3, 
+            borderRadius: '15px',
+            height: '400px'
+          }}>
             <Typography variant="h6" sx={{ mb: 2 }}>주문 및 배송 현황</Typography>
-            <LineChart width={800} height={300} data={orderData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Line type="monotone" dataKey="orders" stroke="#8884d8" name="주문" />
-              <Line type="monotone" dataKey="deliveries" stroke="#82ca9d" name="배송" />
-            </LineChart>
+            <ResponsiveContainer width="100%" height="85%">
+              <LineChart data={orderData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Line type="monotone" dataKey="orders" stroke="#8884d8" name="주문" />
+                <Line type="monotone" dataKey="deliveries" stroke="#82ca9d" name="배송" />
+              </LineChart>
+            </ResponsiveContainer>
           </Paper>
         </Grid>
         <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 3, borderRadius: '15px' }}>
+          <Paper sx={{ 
+            p: 3, 
+            borderRadius: '15px',
+            height: '400px'
+          }}>
             <Typography variant="h6" sx={{ mb: 2 }}>주문 상태 분포</Typography>
-            <PieChart width={400} height={300}>
-              <Pie
-                data={[
-                  { name: '배송완료', value: 45 },
-                  { name: '배송중', value: 25 },
-                  { name: '주문확인', value: 20 },
-                  { name: '준비중', value: 10 }
-                ]}
-                cx={200}
-                cy={150}
-                innerRadius={60}
-                outerRadius={80}
-                fill="#8884d8"
-                paddingAngle={5}
-                dataKey="value"
-              >
-                {orderData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-              <Legend />
-            </PieChart>
+            <ResponsiveContainer width="100%" height="85%">
+              <PieChart>
+                <Pie
+                  data={pieChartData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {pieChartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
           </Paper>
         </Grid>
       </Grid>
 
-      {/* 고객 주문 테이블 */}
       <Paper sx={{ p: 3, borderRadius: '15px' }}>
         <Typography variant="h6" sx={{ mb: 2 }}>고객 주문 현황</Typography>
         <TableContainer>
@@ -179,4 +189,4 @@ const AdminDashboard = () => {
   );
 };
 
-export default AdminDashboard; 
+export default AdminDashboard;
