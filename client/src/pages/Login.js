@@ -137,8 +137,22 @@ const Login = () => {
 
     // 관리자 계정 확인
     if (formData.username === 'admin' && formData.password === 'chekd4032') {
-      localStorage.setItem('adminToken', 'admin-token');
-      navigate('/admin/dashboard');
+      const adminData = {
+        id: 'admin',
+        role: 'admin',
+        exp: Date.now() + (24 * 60 * 60 * 1000) // 24시간
+      };
+      
+      try {
+        // 토큰 생성 시 JSON.stringify 후 base64 인코딩
+        const adminToken = `Bearer ${btoa(JSON.stringify(adminData))}`;
+        localStorage.setItem('adminToken', adminToken);
+        console.log('Admin token saved:', adminToken); // 디버깅용
+        navigate('/admin/dashboard');
+      } catch (error) {
+        console.error('토큰 생성 에러:', error);
+        setLoginError('로그인 처리 중 오류가 발생했습니다.');
+      }
       return;
     }
 
@@ -164,8 +178,20 @@ const Login = () => {
 
     } catch (error) {
       setLoginError('아이디 또는 비밀번호를 확인해주세요');
-      localStorage.removeItem('userToken'); // 토큰 제거
+      localStorage.removeItem('userToken');
     }
+  };
+
+  const handleGoogleLogin = () => {
+    window.location.href = '/auth/google';
+  };
+
+  const handleNaverLogin = () => {
+    window.location.href = '/auth/naver';
+  };
+
+  const handleKakaoLogin = () => {
+    window.location.href = '/auth/kakao';
   };
 
   return (
@@ -193,7 +219,7 @@ const Login = () => {
         <Box sx={{ mb: 3 }}>
           <SocialButton
             variant="outlined"
-            onClick={() => handleSocialLogin('google')}
+            onClick={handleGoogleLogin}
             sx={{ 
               borderColor: '#EA4335',
               color: '#EA4335',
@@ -206,7 +232,20 @@ const Login = () => {
           
           <SocialButton
             variant="contained"
-            onClick={() => handleSocialLogin('kakao')}
+            onClick={handleNaverLogin}
+            sx={{ 
+              bgcolor: '#2DB400',
+              color: '#ffffff',
+              '&:hover': { bgcolor: '#2DB400', opacity: 0.9 }
+            }}
+          >
+            <img src="/naver-icon.png" alt="Naver" />
+            네이버로 계속하기
+          </SocialButton>
+
+          <SocialButton
+            variant="contained"
+            onClick={handleKakaoLogin}
             sx={{ 
               bgcolor: '#FEE500',
               color: '#000000',
@@ -215,19 +254,6 @@ const Login = () => {
           >
             <img src="/kakao-icon.png" alt="Kakao" />
             카카오로 계속하기
-          </SocialButton>
-
-          <SocialButton
-            variant="contained"
-            onClick={() => handleSocialLogin('naver')}
-            sx={{ 
-              bgcolor: '#03C75A',
-              color: '#ffffff',
-              '&:hover': { bgcolor: '#03C75A', opacity: 0.9 }
-            }}
-          >
-            <img src="/naver-icon.png" alt="Naver" />
-            네이버로 계속하기
           </SocialButton>
         </Box>
 

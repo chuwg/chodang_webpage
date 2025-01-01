@@ -2,26 +2,19 @@ const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 
-// 회원가입 컨트롤러
+// 일반 회원가입
 exports.signup = async (req, res) => {
   try {
     const { username, email, password, phone, address } = req.body;
 
-    // 아이디 중복 체크
-    const existingUsername = await User.findOne({ username });
-    if (existingUsername) {
-      return res.status(400).json({
-        success: false,
-        message: '이미 사용 중인 아이디입니다.'
-      });
-    }
+    // 이미 존재하는 사용자 확인
+    const existingUser = await User.findOne({
+      $or: [{ username }, { email }]
+    });
 
-    // 이메일 중복 체크
-    const existingEmail = await User.findOne({ email });
-    if (existingEmail) {
+    if (existingUser) {
       return res.status(400).json({
-        success: false,
-        message: '이미 사용 중인 이메일입니다.'
+        message: '이미 존재하는 아이디 또는 이메일입니다.'
       });
     }
 
@@ -34,71 +27,58 @@ exports.signup = async (req, res) => {
       address
     });
 
-    // JWT 토큰 생성
+    // 토큰 생성
     const token = jwt.sign(
       { id: user._id },
       process.env.JWT_SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: '1d' }
     );
 
     res.status(201).json({
       success: true,
-      message: '회원가입이 완료되었습니다.',
-      token
+      token,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role
+      }
     });
-
   } catch (error) {
     console.error('회원가입 에러:', error);
     res.status(500).json({
       success: false,
-      message: '서버 오류가 발생했습니다.',
-      error: error.message
+      message: '서버 오류가 발생했습니다.'
     });
   }
 };
 
-// 아이디 중복 체크 컨트롤러
-exports.checkUsername = async (req, res) => {
+// 소셜 로그인 성공 후 처리
+exports.socialLoginSuccess = async (req, res) => {
   try {
-    const { username } = req.body;
+    const token = jwt.sign(
+      { id: req.user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: '1d' }
+    );
 
-    if (!username || username.length < 4) {
-      return res.status(400).json({
-        success: false,
-        message: '유효하지 않은 아이디입니다.',
-        available: false
-      });
-    }
-
-    const existingUser = await User.findOne({ username });
-    
-    res.json({
-      success: true,
-      available: !existingUser,
-      message: !existingUser ? '사용 가능한 아이디입니다.' : '이미 사용 중인 아이디입니다.'
-    });
-
+    // 프론트엔드로 리다이렉트 (토큰 포함)
+    res.redirect(`${process.env.FRONTEND_URL}/social-login-success?token=${token}`);
   } catch (error) {
-    console.error('아이디 중복 체크 에러:', error);
-    res.status(500).json({
-      success: false,
-      message: '서버 오류가 발생했습니다.',
-      available: false
-    });
+    res.redirect(`${process.env.FRONTEND_URL}/login?error=auth_failed`);
   }
 };
 
-// 로그인 컨트롤러 추가
+// 로그인
 exports.login = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { email, password } = req.body;
 
     // 사용자 찾기
-    const user = await User.findOne({ username });
+    const user = await User.findOne({ email });
     if (!user) {
       return res.status(401).json({
-        success: false,
-        message: '아이디 또는 비밀번호를 확인해주세요'
+        message: '아이디 또는 비밀번호가 일치하지 않습니다.'
       });
     }
 
@@ -106,8 +86,7 @@ exports.login = async (req, res) => {
     const isMatch = await user.matchPassword(password);
     if (!isMatch) {
       return res.status(401).json({
-        success: false,
-        message: '아이디 또는 비밀번호를 확인해주세요'
+        message: '아이디 또는 비밀번호가 일치하지 않습니다.'
       });
     }
 
@@ -115,17 +94,35 @@ exports.login = async (req, res) => {
     const token = jwt.sign(
       { id: user._id },
       process.env.JWT_SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: '1d' }
     );
 
     res.json({
       success: true,
-      message: '로그인 성공',
-      token
+      token,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role
+      }
     });
-
   } catch (error) {
     console.error('로그인 에러:', error);
+    res.status(500).json({
+      success: false,
+      message: '서버 오류가 발생했습니다.'
+    });
+  }
+};
+
+// 아이디 중복 체크
+exports.checkUsername = async (req, res) => {
+  try {
+    const { username } = req.body;
+    // ... 중복 체크 로직
+  } catch (error) {
+    console.error('아이디 중복 체크 에러:', error);
     res.status(500).json({
       success: false,
       message: '서버 오류가 발생했습니다.'

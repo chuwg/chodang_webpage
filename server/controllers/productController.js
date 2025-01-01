@@ -3,15 +3,21 @@ const Product = require('../models/Product');
 // 상품 생성
 exports.createProduct = async (req, res) => {
   try {
+    console.log('Creating product:', req.body); // 디버깅용
+
     const product = await Product.create(req.body);
+    
+    console.log('Created product:', product); // 디버깅용
+
     res.status(201).json({
       success: true,
       data: product
     });
   } catch (error) {
+    console.error('Product creation error:', error); // 디버깅용
     res.status(400).json({
       success: false,
-      error: error.message
+      message: error.message
     });
   }
 };
@@ -58,10 +64,12 @@ exports.getProduct = async (req, res) => {
 // 상품 수정
 exports.updateProduct = async (req, res) => {
   try {
+    console.log('Updating product:', req.params.id, req.body); // 디버깅용
+
     const product = await Product.findByIdAndUpdate(
-      req.params.id, 
+      req.params.id,
       req.body,
-      { 
+      {
         new: true,
         runValidators: true
       }
@@ -70,18 +78,21 @@ exports.updateProduct = async (req, res) => {
     if (!product) {
       return res.status(404).json({
         success: false,
-        error: '상품을 찾을 수 없습니다'
+        message: '상품을 찾을 수 없습니다.'
       });
     }
+
+    console.log('Updated product:', product); // 디버깅용
 
     res.status(200).json({
       success: true,
       data: product
     });
   } catch (error) {
+    console.error('Product update error:', error); // 디버깅용
     res.status(400).json({
       success: false,
-      error: error.message
+      message: error.message
     });
   }
 };

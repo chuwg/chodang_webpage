@@ -5,23 +5,23 @@ const {
   getProducts,
   getProduct,
   updateProduct,
-  deleteProduct,
-  searchProducts,
-  updateStock
+  deleteProduct
 } = require('../controllers/productController');
+const { protect, authorize } = require('../middleware/auth');
 
-// 기본 CRUD 라우트
-router.route('/')
-  .get(getProducts)
-  .post(createProduct);
+// 상품 등록
+router.post('/', protect, authorize('admin'), createProduct);
 
-router.route('/:id')
-  .get(getProduct)
-  .put(updateProduct)
-  .delete(deleteProduct);
+// 상품 목록 조회
+router.get('/', getProducts);
 
-// 추가 기능 라우트
-router.get('/search', searchProducts);
-router.patch('/:id/stock', updateStock);
+// 상품 상세 조회
+router.get('/:id', getProduct);
+
+// 상품 수정
+router.put('/:id', protect, authorize('admin'), updateProduct);
+
+// 상품 삭제
+router.delete('/:id', protect, authorize('admin'), deleteProduct);
 
 module.exports = router; 

@@ -12,16 +12,23 @@ const userSchema = new mongoose.Schema({
   },
   email: {
     type: String,
+    required: [true, '이메일은 필수입니다'],
     unique: true,
-    sparse: true,
     trim: true,
-    match: [/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/, '유효한 이메일 주소를 입력해주세요'],
-    default: null
+    match: [/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/, '유효한 이메일 주소를 입력해주세요']
   },
   password: {
     type: String,
-    required: [true, '비밀번호는 필수입니다'],
+    required: function() {
+      // 소셜 로그인이 아닌 경우에만 비밀번호 필수
+      return !this.oauth.google && !this.oauth.naver && !this.oauth.kakao;
+    },
     minlength: [8, '비밀번호는 최소 8자 이상이어야 합니다']
+  },
+  oauth: {
+    google: String,
+    naver: String,
+    kakao: String
   },
   phone: {
     type: String,
@@ -37,16 +44,15 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ['user', 'admin'],
     default: 'user'
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
   }
-});
+}, { timestamps: true });
 
 // 비밀번호 해싱 미들웨어
 userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
+  // 소셜 로그인 사용자이거나 비밀번호가 변경되지 않은 경우 스킵
+  if (this.oauth.google || this.oauth.naver || this.oauth.kakao || !this.isModified('password')) {
+    return next();
+  }
   
   try {
     const salt = await bcrypt.genSalt(10);
@@ -59,6 +65,7 @@ userSchema.pre('save', async function(next) {
 
 // 비밀번호 검증 메서드
 userSchema.methods.matchPassword = async function(enteredPassword) {
+  if (!this.password) return false;
   return await bcrypt.compare(enteredPassword, this.password);
 };
 

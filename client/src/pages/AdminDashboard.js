@@ -1,63 +1,108 @@
 import React, { useState, useEffect } from 'react';
-import { 
+import axios from 'axios';
+import {
   Container, Grid, Paper, Typography, Box, Table,
   TableBody, TableCell, TableHead, TableRow, TableContainer,
-  Card, CardContent, styled 
+  Button, Dialog, DialogTitle, DialogContent, DialogActions,
+  TextField, Tab, Tabs, IconButton, Alert, MenuItem
 } from '@mui/material';
+import { Delete, Edit, ShoppingCart, LocalShipping, Person, AttachMoney } from '@mui/icons-material';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer, PieChart, Pie, Cell
+  ResponsiveContainer, PieChart, Pie, Cell 
 } from 'recharts';
-import { 
-  ShoppingCart, LocalShipping, Person, AttachMoney 
-} from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 
-const StyledCard = styled(Card)({
-  height: '100%',
-  background: 'linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%)',
-  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
-  borderRadius: '15px',
+// API 인스턴스 설정
+const api = axios.create({
+  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5001',
+  headers: {
+    'Content-Type': 'application/json'
+  }
 });
 
-const StatCard = ({ icon, title, value, color }) => (
-  <StyledCard>
-    <CardContent>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-        {icon}
-        <Typography variant="h6" sx={{ ml: 1 }}>{title}</Typography>
-      </Box>
-      <Typography variant="h4" sx={{ color }}>{value}</Typography>
-    </CardContent>
-  </StyledCard>
+// 요청 인터셉터 추가
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('adminToken');
+    if (token) {
+      config.headers.Authorization = token;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
 );
 
-const AdminDashboard = () => {
+// 응답 인터셉터 추가
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('adminToken');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
+// 상품 카테고리 enum 정의 수정 - 대문자로 변경
+const PRODUCT_CATEGORIES = [
+  { value: 'FOOD', label: '식품' },
+  { value: 'ELECTRONICS', label: '전자제품' },
+  { value: 'CLOTHING', label: '의류' },
+  { value: 'BOOKS', label: '도서' },
+  { value: 'BEAUTY', label: '뷰티' },
+  { value: 'SPORTS', label: '스포츠용품' },
+  { value: 'HOME', label: '홈/리빙' },
+  { value: 'OTHER', label: '기타' }
+];
+
+function TabPanel({ children, value, index }) {
+  return (
+    <div 
+      role="tabpanel"
+      hidden={value !== index}
+      style={{ 
+        display: value === index ? 'block' : 'none',
+        width: '100%'
+      }}
+    >
+      {value === index && (
+        <Box sx={{ p: 2, width: '100%' }}>
+          {children}
+        </Box>
+      )}
+    </div>
+  );
+}
+
+function AdminDashboard() {
+  const [tabValue, setTabValue] = useState(0);
+  const [users, setUsers] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [openProductDialog, setOpenProductDialog] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [productForm, setProductForm] = useState({
+    name: '',
+    description: '',
+    price: '',
+    stock: '',
+    category: 'OTHER', // 대문자로 변경
+    image: ''
+  });
+  const [alert, setAlert] = useState({ show: false, message: '', severity: 'success' });
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const adminToken = localStorage.getItem('adminToken');
-    if (!adminToken) {
-      navigate('/login');
-    }
-  }, [navigate]);
-
-  // 샘플 데이터
+  // 대시보드 데이터
   const orderData = [
     { date: '2024-01-01', orders: 15, deliveries: 12 },
     { date: '2024-01-02', orders: 20, deliveries: 18 },
     { date: '2024-01-03', orders: 25, deliveries: 22 },
   ];
 
-  const customerOrders = [
-    { id: 1, name: '김철수', email: 'kim@example.com', totalOrders: 5, totalAmount: 250000 },
-    { id: 2, name: '이영희', email: 'lee@example.com', totalOrders: 3, totalAmount: 150000 },
-  ];
-
-  // COLORS 상수 추가
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
-
-  // pieChartData 추가
   const pieChartData = [
     { name: '배송완료', value: 45 },
     { name: '배송중', value: 25 },
@@ -65,128 +110,500 @@ const AdminDashboard = () => {
     { name: '준비중', value: 10 }
   ];
 
-  return (
-    <Container sx={{ pt: '80px', pb: '3rem' }}>
-      <Typography variant="h4" sx={{ mb: 4, fontWeight: 'bold' }}>
-        관리자 대시보드
-      </Typography>
+  useEffect(() => {
+    fetchUsers();
+    fetchProducts();
+  }, []);
 
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            icon={<ShoppingCart sx={{ color: '#4CAF50' }} />}
-            title="오늘 주문"
-            value="25"
-            color="#4CAF50"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            icon={<LocalShipping sx={{ color: '#2196F3' }} />}
-            title="배송 중"
-            value="18"
-            color="#2196F3"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            icon={<Person sx={{ color: '#FF9800' }} />}
-            title="총 고객"
-            value="156"
-            color="#FF9800"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            icon={<AttachMoney sx={{ color: '#F44336' }} />}
-            title="이번달 매출"
-            value="₩2.5M"
-            color="#F44336"
-          />
-        </Grid>
-      </Grid>
+  const fetchUsers = async () => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      console.log('Fetching users with token:', token);
 
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} md={8}>
-          <Paper sx={{ 
-            p: 3, 
-            borderRadius: '15px',
-            height: '400px'
-          }}>
-            <Typography variant="h6" sx={{ mb: 2 }}>주문 및 배송 현황</Typography>
-            <ResponsiveContainer width="100%" height="85%">
-              <LineChart data={orderData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="orders" stroke="#8884d8" name="주문" />
-                <Line type="monotone" dataKey="deliveries" stroke="#82ca9d" name="배송" />
-              </LineChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ 
-            p: 3, 
-            borderRadius: '15px',
-            height: '400px'
-          }}>
-            <Typography variant="h6" sx={{ mb: 2 }}>주문 상태 분포</Typography>
-            <ResponsiveContainer width="100%" height="85%">
-              <PieChart>
-                <Pie
-                  data={pieChartData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  paddingAngle={5}
-                  dataKey="value"
+      const config = {
+        headers: {
+          'Authorization': token
+        }
+      };
+      
+      console.log('Making request to:', `${process.env.REACT_APP_API_URL}/api/admin/users`);
+      const response = await api.get('/api/admin/users', config);
+      console.log('Users response:', response.data);
+      
+      setUsers(response.data.data);
+    } catch (error) {
+      console.error('회원 목록 조회 에러:', error);
+      showAlert('회원 목록을 불러오는데 실패했습니다.', 'error');
+    }
+  };
+
+  const fetchProducts = async () => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      const config = {
+        headers: {
+          'Authorization': token
+        }
+      };
+      const response = await api.get('/api/products', config);
+      setProducts(response.data.data);
+    } catch (error) {
+      console.error('상품 목록 조회 에러:', error);
+      showAlert('상품 목록을 불러오는데 실패했습니다.', 'error');
+    }
+  };
+
+  const handleDeleteUser = async (userId) => {
+    if (!window.confirm('정말 이 회원을 삭제하시겠습니까?')) return;
+    
+    try {
+      const token = localStorage.getItem('adminToken');
+      const config = {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      };
+      await api.delete(`/api/admin/users/${userId}`, config);
+      showAlert('회원이 삭제되었습니다.', 'success');
+      fetchUsers();
+    } catch (error) {
+      console.error('회원 삭제 에러:', error);
+      showAlert('회원 삭제에 실패했습니다.', 'error');
+    }
+  };
+
+  const handleProductChange = (e) => {
+    setProductForm({
+      ...productForm,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleProductSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const token = localStorage.getItem('adminToken');
+      
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+
+      // 데이터 검증
+      if (!productForm.name || !productForm.description || !productForm.price || !productForm.stock) {
+        showAlert('모든 필수 항목을 입력해주세요.', 'error');
+        return;
+      }
+
+      // 카테고리를 대문자로 변환하여 전송
+      const formData = {
+        ...productForm,
+        price: Number(productForm.price),
+        stock: Number(productForm.stock),
+        category: productForm.category.toUpperCase() // 카테고리를 대문자로 변환
+      };
+
+      const config = {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token
+        }
+      };
+
+      let response;
+      if (selectedProduct) {
+        response = await api.put(
+          `/api/products/${selectedProduct._id}`,
+          formData,
+          config
+        );
+      } else {
+        response = await api.post('/api/products', formData, config);
+      }
+
+      if (response.data.success) {
+        showAlert(
+          selectedProduct ? '상품이 수정되었습니다.' : '상품이 등록되었습니다.',
+          'success'
+        );
+        setOpenProductDialog(false);
+        resetProductForm();
+        fetchProducts();
+      }
+    } catch (error) {
+      console.error('상품 저장 에러:', error.response?.data || error);
+      
+      if (error.response?.status === 401) {
+        localStorage.removeItem('adminToken');
+        navigate('/login');
+        return;
+      }
+      
+      showAlert(
+        error.response?.data?.message || '상품 저장에 실패했습니다.',
+        'error'
+      );
+    }
+  };
+
+  const handleDeleteProduct = async (productId) => {
+    if (!window.confirm('정말 이 상품을 삭제하시겠습니까?')) return;
+    
+    try {
+      const token = localStorage.getItem('adminToken');
+      const config = {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      };
+      await api.delete(`/api/products/${productId}`, config);
+      showAlert('상품이 삭제되었습니다.', 'success');
+      fetchProducts();
+    } catch (error) {
+      showAlert('상품 삭제에 실패했습니다.', 'error');
+    }
+  };
+
+  const handleEditProduct = (product) => {
+    setSelectedProduct(product);
+    setProductForm({
+      name: product.name || '',
+      description: product.description || '',
+      price: product.price || '',
+      stock: product.stock || '',
+      category: product.category?.toUpperCase() || 'OTHER', // 대문자로 변환
+      image: product.image || ''
+    });
+    setOpenProductDialog(true);
+  };
+
+  const resetProductForm = () => {
+    setSelectedProduct(null);
+    setProductForm({
+      name: '',
+      description: '',
+      price: '',
+      stock: '',
+      category: 'OTHER', // 대문자로 변경
+      image: ''
+    });
+  };
+
+  const showAlert = (message, severity) => {
+    setAlert({ show: true, message, severity });
+    setTimeout(() => setAlert({ show: false, message: '', severity: 'success' }), 3000);
+  };
+
+  // 카테고리 value로부터 label을 찾는 helper 함수 추가
+  const getCategoryLabel = (categoryValue) => {
+    const category = PRODUCT_CATEGORIES.find(cat => cat.value === categoryValue);
+    return category ? category.label : categoryValue;
+  };
+
+  // 회원 목록 테이블 렌더링
+  const renderUsersTable = () => (
+    <TableContainer component={Paper}>
+      <Table>
+        <TableHead>
+          <TableRow>
+            <TableCell>이름</TableCell>
+            <TableCell>이메일</TableCell>
+            <TableCell>전화번호</TableCell>
+            <TableCell>주소</TableCell>
+            <TableCell>가입일</TableCell>
+            <TableCell>작업</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {users.map((user) => (
+            <TableRow key={user._id}>
+              <TableCell>{user.username}</TableCell>
+              <TableCell>{user.email}</TableCell>
+              <TableCell>{user.phone}</TableCell>
+              <TableCell>{user.address}</TableCell>
+              <TableCell>
+                {new Date(user.createdAt).toLocaleDateString()}
+              </TableCell>
+              <TableCell>
+                <IconButton
+                  color="error"
+                  onClick={() => handleDeleteUser(user._id)}
                 >
-                  {pieChartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Grid>
-      </Grid>
+                  <Delete />
+                </IconButton>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  );
 
-      <Paper sx={{ p: 3, borderRadius: '15px' }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>고객 주문 현황</Typography>
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>고객명</TableCell>
-                <TableCell>이메일</TableCell>
-                <TableCell align="right">총 주문 횟수</TableCell>
-                <TableCell align="right">총 주문 액</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {customerOrders.map((customer) => (
-                <TableRow key={customer.id}>
-                  <TableCell>{customer.name}</TableCell>
-                  <TableCell>{customer.email}</TableCell>
-                  <TableCell align="right">{customer.totalOrders}회</TableCell>
-                  <TableCell align="right">
-                    {customer.totalAmount.toLocaleString()}원
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+  return (
+    <Container maxWidth="lg" sx={{ 
+      pt: '80px',
+      pb: '3rem',
+      '& .MuiPaper-root': {
+        borderRadius: '8px',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+      }
+    }}>
+      {alert.show && (
+        <Alert severity={alert.severity} sx={{ mb: 2 }}>
+          {alert.message}
+        </Alert>
+      )}
+
+      <Paper sx={{ mb: 2 }}>
+        <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)}>
+          <Tab label="대시보드" />
+          <Tab label="회원 관리" />
+          <Tab label="상품 관리" />
+        </Tabs>
       </Paper>
+
+      {/* 대시보드 탭 */}
+      <TabPanel value={tabValue} index={0}>
+        {/* 통계 카드 섹션 */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid item xs={12} sm={6} md={3}>
+            <Paper sx={{ p: 3, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <Typography color="textSecondary" gutterBottom>오늘 주문</Typography>
+              <Typography variant="h3" component="div" sx={{ mb: 2 }}>25건</Typography>
+              <ShoppingCart sx={{ color: '#4CAF50', fontSize: 40 }} />
+            </Paper>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Paper sx={{ p: 3, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <Typography color="textSecondary" gutterBottom>배송 중</Typography>
+              <Typography variant="h3" component="div" sx={{ mb: 2 }}>18건</Typography>
+              <LocalShipping sx={{ color: '#2196F3', fontSize: 40 }} />
+            </Paper>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Paper sx={{ p: 3, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <Typography color="textSecondary" gutterBottom>총 회원수</Typography>
+              <Typography variant="h3" component="div" sx={{ mb: 2 }}>156명</Typography>
+              <Person sx={{ color: '#FF9800', fontSize: 40 }} />
+            </Paper>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Paper sx={{ p: 3, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <Typography color="textSecondary" gutterBottom>이번달 매출</Typography>
+              <Typography variant="h3" component="div" sx={{ mb: 2 }}>₩2.5M</Typography>
+              <AttachMoney sx={{ color: '#F44336', fontSize: 40 }} />
+            </Paper>
+          </Grid>
+        </Grid>
+
+        {/* 차트 섹션 */}
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={8}>
+            <Paper sx={{ p: 3, height: '400px' }}>
+              <Typography variant="h6" gutterBottom>주문 및 배송 현황</Typography>
+              <Box sx={{ width: '100%', height: 'calc(100% - 40px)' }}>
+                <ResponsiveContainer>
+                  <LineChart data={orderData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Line type="monotone" dataKey="orders" stroke="#8884d8" name="주문" />
+                    <Line type="monotone" dataKey="deliveries" stroke="#82ca9d" name="배송" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </Box>
+            </Paper>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Paper sx={{ p: 3, height: '400px' }}>
+              <Typography variant="h6" gutterBottom>주문 상태 분포</Typography>
+              <Box sx={{ width: '100%', height: 'calc(100% - 40px)' }}>
+                <ResponsiveContainer>
+                  <PieChart>
+                    <Pie
+                      data={pieChartData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {pieChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </Box>
+            </Paper>
+          </Grid>
+        </Grid>
+      </TabPanel>
+
+      {/* 회원 관리 탭 */}
+      <TabPanel value={tabValue} index={1}>
+        {renderUsersTable()}
+      </TabPanel>
+
+      {/* 상품 관리 탭 */}
+      <TabPanel value={tabValue} index={2}>
+        <Box sx={{ mb: 2 }}>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => {
+              resetProductForm();
+              setOpenProductDialog(true);
+            }}
+          >
+            상품 등록
+          </Button>
+        </Box>
+        <Paper>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>상품명</TableCell>
+                  <TableCell>설명</TableCell>
+                  <TableCell>가격</TableCell>
+                  <TableCell>재고</TableCell>
+                  <TableCell>카테고리</TableCell>
+                  <TableCell>작업</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {products.map((product) => (
+                  <TableRow key={product._id}>
+                    <TableCell>{product.name}</TableCell>
+                    <TableCell>{product.description}</TableCell>
+                    <TableCell>{product.price.toLocaleString()}원</TableCell>
+                    <TableCell>{product.stock}</TableCell>
+                    <TableCell>{getCategoryLabel(product.category)}</TableCell>
+                    <TableCell>
+                      <IconButton
+                        color="primary"
+                        onClick={() => handleEditProduct(product)}
+                      >
+                        <Edit />
+                      </IconButton>
+                      <IconButton
+                        color="error"
+                        onClick={() => handleDeleteProduct(product._id)}
+                      >
+                        <Delete />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      </TabPanel>
+
+      {/* 상품 등록/수정 다이얼로그 */}
+      <Dialog 
+        open={openProductDialog} 
+        onClose={() => {
+          setOpenProductDialog(false);
+          resetProductForm();
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          {selectedProduct ? '상품 수정' : '상품 등록'}
+        </DialogTitle>
+        <form onSubmit={handleProductSubmit}>
+          <DialogContent>
+            <TextField
+              name="name"
+              label="상품명"
+              value={productForm.name}
+              onChange={handleProductChange}
+              fullWidth
+              required
+              margin="normal"
+            />
+            <TextField
+              name="description"
+              label="상품 설명"
+              value={productForm.description}
+              onChange={handleProductChange}
+              fullWidth
+              required
+              margin="normal"
+              multiline
+              rows={3}
+            />
+            <TextField
+              name="price"
+              label="가격"
+              type="number"
+              value={productForm.price}
+              onChange={handleProductChange}
+              fullWidth
+              required
+              margin="normal"
+            />
+            <TextField
+              name="stock"
+              label="재고"
+              type="number"
+              value={productForm.stock}
+              onChange={handleProductChange}
+              fullWidth
+              required
+              margin="normal"
+            />
+            <TextField
+              select
+              name="category"
+              label="카테고리"
+              value={productForm.category}
+              onChange={handleProductChange}
+              fullWidth
+              required
+              margin="normal"
+            >
+              {PRODUCT_CATEGORIES.map((category) => (
+                <MenuItem key={category.value} value={category.value}>
+                  {category.label}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              name="image"
+              label="이미지 URL"
+              value={productForm.image}
+              onChange={handleProductChange}
+              fullWidth
+              required
+              margin="normal"
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => {
+              setOpenProductDialog(false);
+              resetProductForm();
+            }}>
+              취소
+            </Button>
+            <Button type="submit" variant="contained" color="primary">
+              {selectedProduct ? '수정' : '등록'}
+            </Button>
+          </DialogActions>
+        </form>
+      </Dialog>
     </Container>
   );
-};
+}
 
 export default AdminDashboard;
