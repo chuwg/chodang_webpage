@@ -1,61 +1,56 @@
 const Product = require('../models/Product');
 
-// 상품 생성
-exports.createProduct = async (req, res) => {
-  try {
-    console.log('Creating product:', req.body); // 디버깅용
-
-    const product = await Product.create(req.body);
-    
-    console.log('Created product:', product); // 디버깅용
-
-    res.status(201).json({
-      success: true,
-      data: product
-    });
-  } catch (error) {
-    console.error('Product creation error:', error); // 디버깅용
-    res.status(400).json({
-      success: false,
-      message: error.message
-    });
-  }
-};
-
-// 모든 상품 조회
+// 상품 목록 조회
 exports.getProducts = async (req, res) => {
   try {
     const products = await Product.find();
-    res.status(200).json({
+    res.json({
       success: true,
-      count: products.length,
       data: products
     });
   } catch (error) {
-    res.status(400).json({
+    console.error('상품 목록 조회 에러:', error);
+    res.status(500).json({
       success: false,
-      error: error.message
+      message: '상품 목록을 불러오는데 실패했습니다.'
     });
   }
 };
 
-// 특정 상품 조회
+// 상품 상세 조회
 exports.getProduct = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
     if (!product) {
       return res.status(404).json({
         success: false,
-        error: '상품을 찾을 수 없습니다'
+        message: '상품을 찾을 수 없습니다.'
       });
     }
-    res.status(200).json({
+    res.json({
+      success: true,
+      data: product
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: '상품 조회에 실패했습니다.'
+    });
+  }
+};
+
+// 상품 생성
+exports.createProduct = async (req, res) => {
+  try {
+    const product = await Product.create(req.body);
+    res.status(201).json({
       success: true,
       data: product
     });
   } catch (error) {
     res.status(400).json({
       success: false,
+      message: '상품 생성에 실패했습니다.',
       error: error.message
     });
   }
@@ -64,35 +59,26 @@ exports.getProduct = async (req, res) => {
 // 상품 수정
 exports.updateProduct = async (req, res) => {
   try {
-    console.log('Updating product:', req.params.id, req.body); // 디버깅용
-
     const product = await Product.findByIdAndUpdate(
       req.params.id,
       req.body,
-      {
-        new: true,
-        runValidators: true
-      }
+      { new: true, runValidators: true }
     );
-
     if (!product) {
       return res.status(404).json({
         success: false,
         message: '상품을 찾을 수 없습니다.'
       });
     }
-
-    console.log('Updated product:', product); // 디버깅용
-
-    res.status(200).json({
+    res.json({
       success: true,
       data: product
     });
   } catch (error) {
-    console.error('Product update error:', error); // 디버깅용
     res.status(400).json({
       success: false,
-      message: error.message
+      message: '상품 수정에 실패했습니다.',
+      error: error.message
     });
   }
 };
@@ -101,22 +87,20 @@ exports.updateProduct = async (req, res) => {
 exports.deleteProduct = async (req, res) => {
   try {
     const product = await Product.findByIdAndDelete(req.params.id);
-
     if (!product) {
       return res.status(404).json({
         success: false,
-        error: '상품을 찾을 수 없습니다'
+        message: '상품을 찾을 수 없습니다.'
       });
     }
-
-    res.status(200).json({
+    res.json({
       success: true,
-      message: '상품이 삭제되었습니다'
+      message: '상품이 삭제되었습니다.'
     });
   } catch (error) {
-    res.status(400).json({
+    res.status(500).json({
       success: false,
-      error: error.message
+      message: '상품 삭제에 실패했습니다.'
     });
   }
 };

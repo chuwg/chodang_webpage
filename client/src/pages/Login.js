@@ -137,21 +137,35 @@ const Login = () => {
 
     // 관리자 계정 확인
     if (formData.username === 'admin' && formData.password === 'chekd4032') {
-      const adminData = {
-        id: 'admin',
-        role: 'admin',
-        exp: Date.now() + (24 * 60 * 60 * 1000) // 24시간
-      };
-      
       try {
-        // 토큰 생성 시 JSON.stringify 후 base64 인코딩
-        const adminToken = `Bearer ${btoa(JSON.stringify(adminData))}`;
-        localStorage.setItem('adminToken', adminToken);
-        console.log('Admin token saved:', adminToken); // 디버깅용
-        navigate('/admin/dashboard');
+        const response = await fetch('http://localhost:5001/api/auth/admin-login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({
+            username: formData.username,
+            password: formData.password
+          })
+        });
+
+        const data = await response.json();
+        console.log('서버 응답:', data);  // 디버깅용
+
+        if (!response.ok) {
+          throw new Error(data.message || '관리자 로그인에 실패했습니다.');
+        }
+
+        if (data.success && data.token) {
+          localStorage.setItem('adminToken', `Bearer ${data.token}`);
+          navigate('/admin/dashboard');
+        } else {
+          throw new Error('토큰이 없습니다.');
+        }
       } catch (error) {
-        console.error('토큰 생성 에러:', error);
-        setLoginError('로그인 처리 중 오류가 발생했습니다.');
+        console.error('관리자 로그인 에러:', error);
+        setLoginError(error.message || '관리자 로그인 처리 중 오류가 발생했습니다.');
       }
       return;
     }

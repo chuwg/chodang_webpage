@@ -21,12 +21,12 @@ const api = axios.create({
   }
 });
 
-// 요청 인터셉터 추가
+// 요청 인터셉터 수정
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('adminToken');
     if (token) {
-      config.headers.Authorization = token;
+      config.headers.Authorization = token;  // 이미 'Bearer '가 포함되어 있음
     }
     return config;
   },
@@ -35,11 +35,12 @@ api.interceptors.request.use(
   }
 );
 
-// 응답 인터셉터 추가
+// 응답 인터셉터 수정
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
+      console.error('인증 에러:', error.response.data);
       localStorage.removeItem('adminToken');
       window.location.href = '/login';
     }
@@ -117,19 +118,7 @@ function AdminDashboard() {
 
   const fetchUsers = async () => {
     try {
-      const token = localStorage.getItem('adminToken');
-      console.log('Fetching users with token:', token);
-
-      const config = {
-        headers: {
-          'Authorization': token
-        }
-      };
-      
-      console.log('Making request to:', `${process.env.REACT_APP_API_URL}/api/admin/users`);
-      const response = await api.get('/api/admin/users', config);
-      console.log('Users response:', response.data);
-      
+      const response = await api.get('/api/admin/users');
       setUsers(response.data.data);
     } catch (error) {
       console.error('회원 목록 조회 에러:', error);
@@ -139,13 +128,7 @@ function AdminDashboard() {
 
   const fetchProducts = async () => {
     try {
-      const token = localStorage.getItem('adminToken');
-      const config = {
-        headers: {
-          'Authorization': token
-        }
-      };
-      const response = await api.get('/api/products', config);
+      const response = await api.get('/api/products');
       setProducts(response.data.data);
     } catch (error) {
       console.error('상품 목록 조회 에러:', error);
@@ -157,13 +140,7 @@ function AdminDashboard() {
     if (!window.confirm('정말 이 회원을 삭제하시겠습니까?')) return;
     
     try {
-      const token = localStorage.getItem('adminToken');
-      const config = {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      };
-      await api.delete(`/api/admin/users/${userId}`, config);
+      await api.delete(`/api/admin/users/${userId}`);
       showAlert('회원이 삭제되었습니다.', 'success');
       fetchUsers();
     } catch (error) {
@@ -195,30 +172,18 @@ function AdminDashboard() {
         return;
       }
 
-      // 카테고리를 대문자로 변환하여 전송
       const formData = {
         ...productForm,
         price: Number(productForm.price),
         stock: Number(productForm.stock),
-        category: productForm.category.toUpperCase() // 카테고리를 대문자로 변환
-      };
-
-      const config = {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': token
-        }
+        category: productForm.category.toUpperCase()
       };
 
       let response;
       if (selectedProduct) {
-        response = await api.put(
-          `/api/products/${selectedProduct._id}`,
-          formData,
-          config
-        );
+        response = await api.put(`/api/products/${selectedProduct._id}`, formData);
       } else {
-        response = await api.post('/api/products', formData, config);
+        response = await api.post('/api/products', formData);
       }
 
       if (response.data.success) {
@@ -250,13 +215,7 @@ function AdminDashboard() {
     if (!window.confirm('정말 이 상품을 삭제하시겠습니까?')) return;
     
     try {
-      const token = localStorage.getItem('adminToken');
-      const config = {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      };
-      await api.delete(`/api/products/${productId}`, config);
+      await api.delete(`/api/products/${productId}`);
       showAlert('상품이 삭제되었습니다.', 'success');
       fetchProducts();
     } catch (error) {

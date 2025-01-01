@@ -128,4 +128,46 @@ exports.checkUsername = async (req, res) => {
       message: '서버 오류가 발생했습니다.'
     });
   }
+};
+
+// 관리자 로그인 핸들러 추가
+exports.adminLogin = async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    // 관리자 계정 확인
+    if (username !== 'admin' || password !== 'chekd4032') {
+      return res.status(401).json({
+        success: false,
+        message: '관리자 인증에 실패했습니다.'
+      });
+    }
+
+    // 관리자용 JWT 토큰 생성
+    const token = jwt.sign(
+      {
+        id: 'admin',
+        role: 'admin',
+        isAdmin: true
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: 'admin',
+        username: 'admin',
+        role: 'admin'
+      }
+    });
+  } catch (error) {
+    console.error('관리자 로그인 에러:', error);
+    res.status(500).json({
+      success: false,
+      message: '서버 오류가 발생했습니다.'
+    });
+  }
 }; 

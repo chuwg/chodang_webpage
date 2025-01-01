@@ -1,74 +1,36 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
 
-// Base64 디코딩 함수
-const decodeBase64 = (str) => {
+const auth = async (req, res, next) => {
   try {
-    return Buffer.from(str, 'base64').toString('utf-8');
-  } catch (error) {
-    return null;
-  }
-};
-
-// 인증 미들웨어
-exports.protect = async (req, res, next) => {
-  try {
-    let token;
+    const authHeader = req.headers.authorization;
     
-    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-      token = req.headers.authorization.split(' ')[1];
-    }
-
-    if (!token) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({
         success: false,
-        message: '로그인이 필요한 서비스입니다.'
+        message: '인증 토큰이 없습니다.'
       });
     }
 
+    const token = authHeader.split(' ')[1];
+    
     try {
-      // base64 디코딩 시도
-      const decodedString = Buffer.from(token, 'base64').toString('utf-8');
-      const adminData = JSON.parse(decodedString);
-      
-      console.log('Decoded admin data:', adminData); // 디버깅용
-      console.log('Current time:', Date.now()); // 디버깅용
-      
-      // 관리자 토큰 검증
-      if (adminData && 
-          adminData.id === 'admin' && 
-          adminData.role === 'admin' && 
-          adminData.exp > Date.now()) {
-        req.user = { role: 'admin' };
-        return next();
-      }
-      
-      throw new Error('Invalid admin token');
-    } catch (error) {
-      console.error('토큰 검증 에러:', error);
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      req.user = decoded;  // 디코딩된 사용자 정보를 req.user에 저장
+      next();
+    } catch (jwtError) {
+      console.error('JWT 검증 에러:', jwtError);
       return res.status(401).json({
         success: false,
         message: '유효하지 않은 토큰입니다.'
       });
     }
   } catch (error) {
-    console.error('인증 에러:', error);
+    console.error('Auth 미들웨어 에러:', error);
     res.status(500).json({
       success: false,
-      message: '서버 오류가 발생했습니다.'
+      message: '서버 인증 처리 중 오류가 발생했습니다.'
     });
   }
 };
 
-// 권한 확인 미들웨어
-exports.authorize = (...roles) => {
-  return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({
-        success: false,
-        message: '이 기능에 대한 접근 권한이 없습니다.'
-      });
-    }
-    next();
-  };
-}; 
+module.exports = auth; 
