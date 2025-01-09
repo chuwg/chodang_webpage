@@ -80,12 +80,9 @@ const Signup = () => {
       message: '아이디는 4-20자의 영문, 숫자, 밑줄(_)만 사용 가능합니다',
     },
     email: {
-      type: String,
-      unique: true,
-      sparse: true,
-      trim: true,
-      match: [/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/, '유효한 이메일 주소를 입력해주세요'],
-      default: null
+      required: false,
+      pattern: /^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/,
+      message: '유효한 이메일 주소를 입력해주세요'
     },
     password: {
       required: true,
@@ -125,12 +122,19 @@ const Signup = () => {
     const rule = validationRules[name];
     if (!rule) return '';
 
-    if (rule.required && !value) {
-      return '필수 ��력 항목입니다';
-    }
-
-    if (rule.pattern && !rule.pattern.test(value)) {
-      return rule.message;
+    // 이메일의 경우 값이 있을 때만 패턴 검사
+    if (name === 'email' && value) {
+      if (rule.pattern && !rule.pattern.test(value)) {
+        return rule.message;
+      }
+    } else {
+      // 다른 필드들의 검증
+      if (rule.required && !value) {
+        return '필수 입력 항목입니다';
+      }
+      if (rule.pattern && !rule.pattern.test(value)) {
+        return rule.message;
+      }
     }
 
     if (rule.minLength && value.length < rule.minLength) {
@@ -203,7 +207,7 @@ const Signup = () => {
 
   const validateStep = () => {
     const currentFields = {
-      0: ['username', 'email', 'password'],
+      0: ['username', 'password'],
       1: ['phone', 'address'],
     }[activeStep] || [];
 
@@ -218,6 +222,15 @@ const Signup = () => {
       }
     });
 
+    // 이메일이 입력된 경우에만 유효성 검사
+    if (formData.email) {
+      const emailError = validateField('email', formData.email);
+      if (emailError) {
+        stepErrors.email = emailError;
+        isValid = false;
+      }
+    }
+
     setErrors(prev => ({
       ...prev,
       ...stepErrors
@@ -228,41 +241,48 @@ const Signup = () => {
 
   const handleSubmit = async () => {
     try {
-      // 모든 필드 유효성 검사
+      // 필수 필드만 유효성 검사
+      const requiredFields = ['username', 'password', 'phone', 'address'];
       const newErrors = {};
-      Object.keys(formData).forEach(field => {
+      
+      requiredFields.forEach(field => {
         const error = validateField(field, formData[field]);
         if (error) newErrors[field] = error;
       });
+
+      if (formData.email) {
+        const emailError = validateField('email', formData.email);
+        if (emailError) newErrors.email = emailError;
+      }
 
       if (Object.keys(newErrors).length > 0) {
         setErrors(newErrors);
         return;
       }
 
-      // API 호출
+      const submitData = {
+        ...formData,
+        email: formData.email || undefined
+      };
+
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/auth/signup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(submitData),
       });
 
+      const data = await response.json();
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || '회원가입에 실패했습니다.');
+        throw new Error(data.message || '회원가입에 실패했습니다.');
       }
 
-      // 회원가입 성공
-      setActiveStep(2); // 완료 단계로 이동
-      
-      // 3초 후 로그인 페이지로 이동
-      setTimeout(() => {
-        navigate('/login');
-      }, 3000);
+      setActiveStep(2);
+      setTimeout(() => navigate('/login'), 3000);
 
     } catch (error) {
+      console.error('회원가입 에러:', error);
       setErrors(prev => ({
         ...prev,
         submit: error.message
@@ -270,13 +290,14 @@ const Signup = () => {
     }
   };
 
-  const handleNext = () => {
+  const handleNext = (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();  // 이벤트 전파 중지
+    }
+    
     if (validateStep()) {
-      if (activeStep === steps.length - 2) {
-        handleSubmit(); // 마지막 단계에서 제출
-      } else {
-        setActiveStep((prev) => prev + 1);
-      }
+      setActiveStep((prev) => prev + 1);
     }
   };
 
@@ -341,8 +362,19 @@ const Signup = () => {
               required
               error={!!errors.password}
               helperText={errors.password}
+              sx={{ 
+                '& input': { 
+                  WebkitTextSecurity: 'disc' 
+                }
+              }}
+              inputProps={{
+                autocomplete: 'new-password',
+                'data-lpignore': true,
+                style: { WebkitTextSecurity: 'disc' }
+              }}
               InputProps={{
                 startAdornment: <Lock color="primary" sx={{ mr: 1 }} />,
+                type: 'text'
               }}
             />
           </>
@@ -393,10 +425,7 @@ const Signup = () => {
   };
 
   return (
-    <Container sx={{ 
-      pt: '80px',
-      pb: '3rem' 
-    }}>
+    <Container sx={{ pt: '80px', pb: '3rem' }}>
       <FormContainer>
         <Typography 
           variant="h4" 
@@ -466,26 +495,34 @@ const Signup = () => {
           ))}
         </Stepper>
 
-        {renderStepContent(activeStep)}
+        <Box component="div" role="form" onSubmit={(e) => e.preventDefault()}>
+          {renderStepContent(activeStep)}
 
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
-          {activeStep !== 0 && (
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
+            {activeStep !== 0 && (
+              <StyledButton
+                onClick={handleBack}
+                variant="outlined"
+                color="primary"
+              >
+                이전
+              </StyledButton>
+            )}
             <StyledButton
-              onClick={handleBack}
-              variant="outlined"
+              variant="contained"
               color="primary"
+              onClick={() => {
+                if (activeStep === steps.length - 2) {
+                  handleSubmit();
+                } else {
+                  handleNext();
+                }
+              }}
+              sx={{ ml: 'auto' }}
             >
-              이전
+              {activeStep === steps.length - 1 ? '완료' : '다음'}
             </StyledButton>
-          )}
-          <StyledButton
-            variant="contained"
-            color="primary"
-            onClick={handleNext}
-            sx={{ ml: 'auto' }}
-          >
-            {activeStep === steps.length - 1 ? '완료' : '다음'}
-          </StyledButton>
+          </Box>
         </Box>
       </FormContainer>
     </Container>

@@ -1,190 +1,222 @@
-import React from 'react';
-import { 
-  Container, Typography, Paper, Grid, Box, Button, 
-  Avatar, Divider, Chip, styled 
+import React, { useState, useEffect } from 'react';
+import {
+  Container,
+  Paper,
+  Typography,
+  Box,
+  TextField,
+  Button,
+  Alert,
+  Grid
 } from '@mui/material';
-import { 
-  Person, ShoppingBasket, LocalShipping, 
-  Edit, Favorite, History 
-} from '@mui/icons-material';
+import { styled } from '@mui/material/styles';
 
-const StyledPaper = styled(Paper)({
-  padding: '2rem',
+const StyledPaper = styled(Paper)(({ theme }) => ({
+  padding: theme.spacing(4),
+  marginTop: theme.spacing(4),
   borderRadius: '15px',
-  background: 'linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%)',
-  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
-  height: '100%',
-});
-
-const ProfileAvatar = styled(Avatar)({
-  width: 100,
-  height: 100,
-  margin: '0 auto 1rem',
-  border: '3px solid #2E7D32',
-});
-
-const StatusChip = styled(Chip)({
-  margin: '0.5rem',
-  fontWeight: 'bold',
-});
-
-const OrderCard = styled(Paper)({
-  padding: '1.5rem',
-  marginBottom: '1rem',
-  borderRadius: '10px',
-  transition: 'transform 0.2s ease',
-  '&:hover': {
-    transform: 'translateY(-5px)',
-    boxShadow: '0 6px 20px rgba(0, 0, 0, 0.1)',
-  },
-});
+  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'
+}));
 
 const MyPage = () => {
-  // 임시 사용자 데이터
-  const user = {
-    name: '홍길동',
-    email: 'hong@example.com',
-    joinDate: '2024.01.15',
-    level: 'GOLD',
-    orderHistory: [
-      {
-        id: 1,
-        date: '2024.03.15',
-        product: '프리미엄 초당옥수수 세트',
-        price: '39,900원',
-        status: '배송완료',
-        orderNumber: 'ORDER-2024031501',
-      },
-      {
-        id: 2,
-        date: '2024.03.01',
-        product: '일반 초당옥수수 세트',
-        price: '29,900원',
-        status: '배송중',
-        orderNumber: 'ORDER-2024030101',
-      },
-    ],
+  const [userData, setUserData] = useState(null);
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const token = localStorage.getItem('userToken');
+        if (!token) {
+          throw new Error('로그인이 필요합니다.');
+        }
+
+        // 사용자 정보와 주문 내역을 병렬로 가져오기
+        const [userResponse, ordersResponse] = await Promise.all([
+          fetch(`${process.env.REACT_APP_API_URL}/api/users/me`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Accept': 'application/json'
+            }
+          }),
+          fetch(`${process.env.REACT_APP_API_URL}/api/users/me/orders`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Accept': 'application/json'
+            }
+          })
+        ]);
+
+        if (!userResponse.ok || !ordersResponse.ok) {
+          throw new Error('데이터를 불러오는데 실패했습니다.');
+        }
+
+        const [userData, ordersData] = await Promise.all([
+          userResponse.json(),
+          ordersResponse.json()
+        ]);
+
+        setUserData(userData.data);
+        setOrders(ordersData.data);
+      } catch (error) {
+        console.error('데이터 조회 에러:', error);
+        setError(error.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // 주문 상태를 한글로 변환하는 함수
+  const getStatusInKorean = (status) => {
+    const statusMap = {
+      'pending': '주문 접수',
+      'processing': '처리 중',
+      'shipped': '배송 중',
+      'delivered': '배송 완료',
+      'cancelled': '주문 취소'
+    };
+    return statusMap[status] || status;
   };
 
+  if (loading) {
+    return (
+      <Container sx={{ pt: '80px' }}>
+        <Typography>로딩 중...</Typography>
+      </Container>
+    );
+  }
+
+  if (error) {
+    return (
+      <Container sx={{ pt: '80px' }}>
+        <Alert severity="error">{error}</Alert>
+      </Container>
+    );
+  }
+
   return (
-    <Container sx={{ 
-      marginTop: '80px',
-      marginBottom: '3rem' 
-    }}>
-      <Typography 
-        variant="h3" 
-        color="primary" 
-        gutterBottom
-        sx={{ 
-          fontWeight: 'bold',
-          textAlign: 'center',
-          marginBottom: '3rem'
-        }}
-      >
-        마이페이지
+    <Container sx={{ pt: '80px', pb: '3rem' }}>
+      <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold' }}>
+        내 정보
       </Typography>
 
-      <Grid container spacing={4}>
-        {/* 프로필 섹션 */}
-        <Grid item xs={12} md={4}>
-          <StyledPaper>
-            <Box sx={{ textAlign: 'center' }}>
-              <ProfileAvatar>
-                <Person sx={{ fontSize: 50 }} />
-              </ProfileAvatar>
-              <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
-                {user.name}
-              </Typography>
-              <Typography color="text.secondary" gutterBottom>
-                {user.email}
-              </Typography>
-              <Chip 
-                label={`${user.level} 회원`}
-                color="primary"
-                sx={{ margin: '1rem 0' }}
-              />
-              <Button
-                variant="outlined"
-                color="primary"
-                startIcon={<Edit />}
-                fullWidth
-                sx={{ marginTop: '1rem' }}
-              >
-                프로필 수정
-              </Button>
-            </Box>
-
-            <Divider sx={{ margin: '2rem 0' }} />
-
-            <Box>
-              <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold' }}>
-                나의 쇼핑 활동
-              </Typography>
-              <Box sx={{ display: 'flex', justifyContent: 'space-around', marginTop: '1rem' }}>
-                <Box sx={{ textAlign: 'center' }}>
-                  <Favorite color="primary" />
-                  <Typography>찜 목록</Typography>
-                  <Typography variant="h6">5</Typography>
-                </Box>
-                <Box sx={{ textAlign: 'center' }}>
-                  <ShoppingBasket color="primary" />
-                  <Typography>주문</Typography>
-                  <Typography variant="h6">8</Typography>
-                </Box>
-                <Box sx={{ textAlign: 'center' }}>
-                  <History color="primary" />
-                  <Typography>리뷰</Typography>
-                  <Typography variant="h6">3</Typography>
-                </Box>
-              </Box>
-            </Box>
-          </StyledPaper>
-        </Grid>
-
-        {/* 주문 내역 섹션 */}
-        <Grid item xs={12} md={8}>
-          <StyledPaper>
-            <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
-              주문 내역
+      <StyledPaper>
+        <Grid container spacing={3}>
+          <Grid item xs={12}>
+            <Typography variant="subtitle1" gutterBottom>
+              아이디
             </Typography>
-            
-            {user.orderHistory.map((order) => (
-              <OrderCard key={order.id} elevation={2}>
-                <Grid container spacing={2} alignItems="center">
-                  <Grid item xs={12} sm={8}>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      주문번호: {order.orderNumber}
-                    </Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 'bold', my: 1 }}>
-                      {order.product}
-                    </Typography>
-                    <Typography color="primary" sx={{ fontWeight: 'bold' }}>
-                      {order.price}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={4} sx={{ textAlign: 'right' }}>
-                    <StatusChip
-                      icon={<LocalShipping />}
-                      label={order.status}
-                      color={order.status === '배송완료' ? 'success' : 'primary'}
-                    />
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                      주문일: {order.date}
-                    </Typography>
-                    <Button 
-                      variant="outlined" 
-                      size="small" 
-                      sx={{ mt: 1 }}
-                    >
-                      상세보기
-                    </Button>
-                  </Grid>
-                </Grid>
-              </OrderCard>
-            ))}
-          </StyledPaper>
+            <Typography variant="body1">
+              {userData?.username}
+            </Typography>
+          </Grid>
+
+          <Grid item xs={12}>
+            <Typography variant="subtitle1" gutterBottom>
+              이메일
+            </Typography>
+            <Typography variant="body1">
+              {userData?.email || '(등록된 이메일 없음)'}
+            </Typography>
+          </Grid>
+
+          <Grid item xs={12}>
+            <Typography variant="subtitle1" gutterBottom>
+              전화번호
+            </Typography>
+            <Typography variant="body1">
+              {userData?.phone}
+            </Typography>
+          </Grid>
+
+          <Grid item xs={12}>
+            <Typography variant="subtitle1" gutterBottom>
+              주소
+            </Typography>
+            <Typography variant="body1">
+              {userData?.address}
+            </Typography>
+          </Grid>
+
+          <Grid item xs={12}>
+            <Typography variant="subtitle1" gutterBottom>
+              가입일
+            </Typography>
+            <Typography variant="body1">
+              {new Date(userData?.createdAt).toLocaleDateString()}
+            </Typography>
+          </Grid>
         </Grid>
-      </Grid>
+
+        <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+          <Button
+            variant="contained"
+            color="primary"
+            // onClick={() => {/* 정보 수정 기능 추가 예정 */}}
+          >
+            정보 수정
+          </Button>
+        </Box>
+      </StyledPaper>
+
+      <Typography variant="h5" gutterBottom sx={{ mt: 4, fontWeight: 'bold' }}>
+        주문 내역
+      </Typography>
+      <StyledPaper>
+        {orders.length > 0 ? (
+          orders.map((order) => (
+            <Box key={order._id} sx={{ mb: 3, pb: 3, borderBottom: '1px solid #eee' }}>
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle1" color="primary">
+                    주문번호: {order._id}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    주문일: {new Date(order.createdAt).toLocaleDateString()}
+                  </Typography>
+                </Grid>
+                
+                {order.products.map((item) => (
+                  <Grid item xs={12} key={item._id}>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Box sx={{ flexGrow: 1 }}>
+                        <Typography variant="body1">
+                          {item.product.name} x {item.quantity}개
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          개당 {item.price.toLocaleString()}원
+                        </Typography>
+                      </Box>
+                      <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
+                        {(item.price * item.quantity).toLocaleString()}원
+                      </Typography>
+                    </Box>
+                  </Grid>
+                ))}
+
+                <Grid item xs={12}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
+                    <Typography variant="subtitle1">
+                      상태: {getStatusInKorean(order.status)}
+                    </Typography>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                      총 결제금액: {order.totalAmount.toLocaleString()}원
+                    </Typography>
+                  </Box>
+                </Grid>
+              </Grid>
+            </Box>
+          ))
+        ) : (
+          <Typography variant="body1" sx={{ textAlign: 'center', py: 3 }}>
+            주문 내역이 없습니다.
+          </Typography>
+        )}
+      </StyledPaper>
     </Container>
   );
 };

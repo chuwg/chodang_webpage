@@ -6,6 +6,7 @@ require('dotenv').config();
 const authRouter = require('./routes/authRoutes');
 const adminRouter = require('./routes/admin');
 const productRoutes = require('./routes/productRoutes');
+const userRoutes = require('./routes/userRoutes');
 
 const app = express();
 
@@ -30,6 +31,7 @@ app.use(express.json());
 app.use('/api/auth', authRouter);
 app.use('/api/products', productRoutes);
 app.use('/api/admin', adminRouter);
+app.use('/api/users', userRoutes);
 
 // 404 에러 처리
 app.use((req, res) => {
